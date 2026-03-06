@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import BudgetFlow from './pages/BudgetFlow';
 import Analytics from './pages/Analytics';
 import AnomalyDetection from './pages/AnomalyDetection';
+import BudgetVerification from './pages/BudgetVerification';
 import GeospatialView from './pages/GeospatialView';
 import AIAssistant from './pages/AIAssistant';
 import Reports from './pages/Reports';
@@ -31,6 +32,7 @@ function App() {
         <Route path="budget-flow" element={<BudgetFlow />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="anomalies" element={<AnomalyDetection />} />
+        <Route path="verification" element={<BudgetVerification />} />
         <Route path="map" element={<GeospatialView />} />
         <Route path="ai-assistant" element={<AIAssistant />} />
         <Route path="reports" element={<Reports />} />

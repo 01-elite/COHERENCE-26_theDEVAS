@@ -22,7 +22,17 @@ const GeospatialView = () => {
     );
   }
 
-  const districts = mapData?.data || [];
+  // Filter out districts with invalid coordinates
+  const districts = (mapData?.data || []).filter(d => {
+    return d.coordinates && 
+           typeof d.coordinates.latitude === 'number' && 
+           typeof d.coordinates.longitude === 'number' &&
+           !isNaN(d.coordinates.latitude) &&
+           !isNaN(d.coordinates.longitude) &&
+           Math.abs(d.coordinates.latitude) <= 90 &&
+           Math.abs(d.coordinates.longitude) <= 180;
+  });
+  
   const states = [...new Set(districts.map(d => d.state))].sort();
 
   const filteredDistricts = selectedState === 'all' 
@@ -41,8 +51,10 @@ const GeospatialView = () => {
   const getCircleRadius = (allocated) => {
     const minRadius = 5;
     const maxRadius = 30;
-    const maxBudget = Math.max(...districts.map(d => d.totalBudgetAllocated));
-    return minRadius + ((allocated / maxBudget) * (maxRadius - minRadius));
+    const maxBudget = Math.max(...districts.map(d => d.totalBudgetAllocated || 0).filter(b => b > 0), 1);
+    const safeAllocated = allocated || 0;
+    if (maxBudget === 0 || safeAllocated === 0) return minRadius;
+    return minRadius + ((safeAllocated / maxBudget) * (maxRadius - minRadius));
   };
 
   return (
@@ -112,12 +124,19 @@ const GeospatialView = () => {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
-            {filteredDistricts.map((district) => (
+            {filteredDistricts.map((district) => {
+              const lat = parseFloat(district.coordinates?.latitude);
+              const lng = parseFloat(district.coordinates?.longitude);
+              
+              // Skip if coordinates are still invalid
+              if (isNaN(lat) || isNaN(lng)) return null;
+              
+              return (
               <CircleMarker
                 key={district.id}
-                center={[district.coordinates.latitude, district.coordinates.longitude]}
-                radius={getCircleRadius(district.totalBudgetAllocated)}
-                fillColor={getCircleColor(parseFloat(district.utilization))}
+                center={[lat, lng]}
+                radius={getCircleRadius(district.totalBudgetAllocated || 0)}
+                fillColor={getCircleColor(parseFloat(district.utilization) || 0)}
                 color="#fff"
                 weight={2}
                 opacity={1}
@@ -128,10 +147,10 @@ const GeospatialView = () => {
                     <h3 className="font-bold text-lg mb-2">{district.name}</h3>
                     <p className="text-sm text-gray-600 mb-1">{district.state}</p>
                     <div className="space-y-1 text-sm">
-                      <p><span className="font-medium">Allocated:</span> {formatAmount(district.totalBudgetAllocated)}</p>
-                      <p><span className="font-medium">Spent:</span> {formatAmount(district.totalBudgetSpent)}</p>
-                      <p><span className="font-medium">Utilization:</span> {district.utilization}%</p>
-                      <p><span className="font-medium">Population:</span> {district.population.toLocaleString()}</p>
+                      <p><span className="font-medium">Allocated:</span> {formatAmount(district.totalBudgetAllocated || 0)}</p>
+                      <p><span className="font-medium">Spent:</span> {formatAmount(district.totalBudgetSpent || 0)}</p>
+                      <p><span className="font-medium">Utilization:</span> {(district.utilization || 0).toFixed(2)}%</p>
+                      <p><span className="font-medium">Population:</span> {(district.population || 0).toLocaleString()}</p>
                       {district.anomalyCount > 0 && (
                         <p className="text-red-600 font-medium">
                           ⚠️ {district.anomalyCount} anomalies detected
@@ -141,7 +160,8 @@ const GeospatialView = () => {
                   </div>
                 </Popup>
               </CircleMarker>
-            ))}
+              );
+            })}
           </MapContainer>
         </div>
       </div>
@@ -155,13 +175,16 @@ const GeospatialView = () => {
         <div className="card">
           <p className="text-sm text-gray-600 mb-1">Total Allocated</p>
           <h3 className="text-2xl font-bold text-gray-900">
-            {formatAmount(filteredDistricts.reduce((sum, d) => sum + d.totalBudgetAllocated, 0))}
+            {formatAmount(filteredDistricts.reduce((sum, d) => sum + (d.totalBudgetAllocated || 0), 0))}
           </h3>
         </div>
         <div className="card">
           <p className="text-sm text-gray-600 mb-1">Average Utilization</p>
           <h3 className="text-2xl font-bold text-gray-900">
-            {(filteredDistricts.reduce((sum, d) => sum + parseFloat(d.utilization), 0) / filteredDistricts.length).toFixed(1)}%
+            {filteredDistricts.length > 0 
+              ? (filteredDistricts.reduce((sum, d) => sum + (parseFloat(d.utilization) || 0), 0) / filteredDistricts.length).toFixed(1)
+              : '0.0'
+            }%
           </h3>
         </div>
       </div>

@@ -8,6 +8,9 @@
     "dev": "nodemon server.js",
     "seed": "node services/dataGenerator.js",
     "seed:quick": "node seed.js",
+    "seed:multiyear": "node seedMultiYear.js",
+    "create:anomalies": "node createAnomalies.js",
+    "update:districts": "node updateDistrictTotals.js",
     "verify": "node verifyData.js"
   },
   "keywords": [

@@ -73,16 +73,20 @@ districtSchema.index({ 'coordinates.latitude': 1, 'coordinates.longitude': 1 });
 
 // Virtual for utilization percentage
 districtSchema.virtual('utilization').get(function() {
-  return this.totalBudgetAllocated === 0 
-    ? 0 
-    : ((this.totalBudgetSpent / this.totalBudgetAllocated) * 100).toFixed(2);
+  if (!this.totalBudgetAllocated || this.totalBudgetAllocated === 0) {
+    return '0.00';
+  }
+  const utilization = ((this.totalBudgetSpent / this.totalBudgetAllocated) * 100).toFixed(2);
+  return isNaN(utilization) ? '0.00' : utilization;
 });
 
 // Virtual for per capita allocation
 districtSchema.virtual('perCapitaAllocation').get(function() {
-  return this.population === 0 
-    ? 0 
-    : (this.totalBudgetAllocated / this.population).toFixed(2);
+  if (!this.population || this.population === 0) {
+    return '0.00';
+  }
+  const perCapita = (this.totalBudgetAllocated / this.population).toFixed(2);
+  return isNaN(perCapita) ? '0.00' : perCapita;
 });
 
 districtSchema.set('toJSON', { virtuals: true });

@@ -30,6 +30,7 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/anomalies', require('./routes/anomalies'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/districts', require('./routes/districts'));
+app.use('/api/verification', require('./routes/verification'));
 
 // Health check route
 app.get('/health', (req, res) => {

@@ -46,7 +46,7 @@ const anomalySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['open', 'investigating', 'resolved', 'false_positive', 'escalated'],
+    enum: ['open', 'investigating', 'resolved', 'false_positive', 'escalated', 'pending', 'dismissed'],
     default: 'open'
   },
   investigatedBy: {
@@ -57,6 +57,7 @@ const anomalySchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  investigationDate: Date,
   resolvedDate: Date,
   resolution: {
     type: String,
@@ -65,6 +66,21 @@ const anomalySchema = new mongoose.Schema({
   aiAnalysis: {
     type: String,
     trim: true
+  },
+  aiInsights: {
+    type: String,
+    trim: true
+  },
+  aiRiskScore: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: null
+  },
+  verificationStatus: {
+    type: String,
+    enum: ['pending', 'needs_review', 'likely_false_positive', 'verified', 'dismissed'],
+    default: 'pending'
   },
   metadata: {
     type: Map,

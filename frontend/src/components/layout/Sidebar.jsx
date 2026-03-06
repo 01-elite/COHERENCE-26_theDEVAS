@@ -10,7 +10,8 @@ import {
   GitBranch,
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -23,6 +24,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/budget-flow', icon: GitBranch, label: 'Budget Flow' },
     { path: '/analytics', icon: TrendingUp, label: 'Analytics' },
     { path: '/anomalies', icon: AlertTriangle, label: 'Anomaly Detection' },
+    { path: '/verification', icon: Shield, label: 'Budget Verification' },
     { path: '/map', icon: Map, label: 'Geospatial View' },
     { path: '/ai-assistant', icon: Bot, label: 'AI Assistant' },
     { path: '/reports', icon: FileText, label: 'Reports' },

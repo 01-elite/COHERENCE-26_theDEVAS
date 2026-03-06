@@ -58,18 +58,33 @@ exports.getMapData = async (req, res, next) => {
   try {
     const districts = await District.find();
 
-    const mapData = districts.map(district => ({
-      id: district._id,
-      name: district.name,
-      state: district.state,
-      coordinates: district.coordinates,
-      totalBudgetAllocated: district.totalBudgetAllocated,
-      totalBudgetSpent: district.totalBudgetSpent,
-      utilization: parseFloat(district.utilization),
-      anomalyCount: district.anomalyCount,
-      riskScore: district.riskScore,
-      population: district.population
-    }));
+    // Filter and map data, ensuring valid coordinates
+    const mapData = districts
+      .filter(district => {
+        // Only include districts with valid coordinates
+        return district.coordinates && 
+               typeof district.coordinates.latitude === 'number' && 
+               typeof district.coordinates.longitude === 'number' &&
+               !isNaN(district.coordinates.latitude) &&
+               !isNaN(district.coordinates.longitude) &&
+               Math.abs(district.coordinates.latitude) <= 90 &&
+               Math.abs(district.coordinates.longitude) <= 180;
+      })
+      .map(district => ({
+        id: district._id,
+        name: district.name,
+        state: district.state,
+        coordinates: {
+          latitude: parseFloat(district.coordinates.latitude) || 0,
+          longitude: parseFloat(district.coordinates.longitude) || 0
+        },
+        totalBudgetAllocated: district.totalBudgetAllocated || 0,
+        totalBudgetSpent: district.totalBudgetSpent || 0,
+        utilization: parseFloat(district.utilization) || 0,
+        anomalyCount: district.anomalyCount || 0,
+        riskScore: district.riskScore || 0,
+        population: district.population || 0
+      }));
 
     res.json({
       success: true,
