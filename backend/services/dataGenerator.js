@@ -181,8 +181,16 @@ const generateData = async () => {
 
         const beneficiary = beneficiaries[Math.floor(Math.random() * beneficiaries.length)];
 
+        // Generate transaction ID
+        const txnDate = new Date();
+        const year = txnDate.getFullYear();
+        const month = String(txnDate.getMonth() + 1).padStart(2, '0');
+        const random = Math.random().toString(36).substr(2, 6).toUpperCase();
+        const transactionId = `TXN${year}${month}${random}`;
+
         const transaction = await Transaction.create({
           budget: budget._id,
+          transactionId,
           type: TRANSACTION_TYPES.EXPENDITURE,
           amount,
           description: `Payment for ${budget.scheme} - Phase ${i + 1}`,
