@@ -108,97 +108,129 @@ const generateData = async () => {
     }
     console.log(`✅ Created ${districts.length} districts`);
 
-    // Create budgets
+    // Create budgets (120 records for comprehensive demo)
     console.log('💰 Creating budgets...');
     const budgets = [];
     const currentYear = new Date().getFullYear();
+    const budgetStatuses = ['active', 'approved', 'closed', 'draft'];
+    const categories = ['infrastructure', 'healthcare', 'education', 'welfare', 'agriculture', 'transport', 'others'];
     
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 120; i++) {
       const department = departments[Math.floor(Math.random() * departments.length)];
       const district = districts[Math.floor(Math.random() * districts.length)];
       const scheme = schemes[Math.floor(Math.random() * schemes.length)];
       
-      const allocatedAmount = (Math.floor(Math.random() * 50) + 10) * 1000000; // 10-60 million
-      const spentAmount = Math.floor(allocatedAmount * (Math.random() * 0.8)); // 0-80% spent
+      // Vary amounts significantly for realistic data
+      const allocatedAmount = (Math.floor(Math.random() * 100) + 20) * 1000000; // 20-120 million
+      const utilizationRate = Math.random() * 0.95; // 0-95% utilization
+      const spentAmount = Math.floor(allocatedAmount * utilizationRate);
       
-      const startDate = new Date(currentYear, 3, 1); // April 1
-      const endDate = new Date(currentYear + 1, 2, 31); // March 31 next year
+      // Vary financial years for historical data
+      const yearOffset = Math.floor(Math.random() * 3); // 0-2 years back
+      const fyYear = currentYear - yearOffset;
+      const startDate = new Date(fyYear, 3, 1); // April 1
+      const endDate = new Date(fyYear + 1, 2, 31); // March 31 next year
+
+      // Determine status based on year and utilization
+      let status;
+      if (yearOffset === 0) {
+        status = utilizationRate > 0.7 ? 'active' : 'approved';
+      } else if (yearOffset === 1) {
+        status = utilizationRate > 0.9 ? 'closed' : 'active';
+      } else {
+        status = 'closed';
+      }
 
       const budget = await Budget.create({
-        title: `${scheme} - ${district.name}`,
+        title: `${scheme} - ${district.name} (Phase ${i + 1})`,
         department: department._id,
-        financialYear: `${currentYear}-${currentYear + 1}`,
+        financialYear: `${fyYear}-${fyYear + 1}`,
         scheme,
         allocatedAmount,
         spentAmount,
-        status: 'active',
+        revisedBudget: allocatedAmount + (Math.random() > 0.7 ? Math.floor(allocatedAmount * 0.1) : 0),
+        status,
         startDate,
         endDate,
         district: district.name,
         state: district.state,
-        description: `Budget allocation for ${scheme} in ${district.name}`,
+        category: categories[Math.floor(Math.random() * categories.length)],
+        priority: ['high', 'medium', 'low'][Math.floor(Math.random() * 3)],
+        description: `Budget allocation for ${scheme} in ${district.name} - FY${fyYear}-${fyYear + 1}`,
+        targetBeneficiaries: Math.floor(Math.random() * 100000) + 10000,
+        actualBeneficiaries: Math.floor(Math.random() * 80000) + 8000,
+        completionPercentage: Math.min(utilizationRate * 100, 100),
         approvedBy: admin._id,
-        approvedDate: new Date()
+        approvedDate: new Date(fyYear, 2, Math.floor(Math.random() * 28) + 1)
       });
       budgets.push(budget);
 
       // Update department totals
-      department.totalAllocatedBudget += allocatedAmount;
-      department.totalSpent += spentAmount;
+      department.totalAllocatedBudget = (department.totalAllocatedBudget || 0) + allocatedAmount;
+      department.totalSpent = (department.totalSpent || 0) + spentAmount;
       await department.save();
 
       // Update district totals
-      district.totalBudgetAllocated += allocatedAmount;
-      district.totalBudgetSpent += spentAmount;
+      district.totalBudgetAllocated = (district.totalBudgetAllocated || 0) + allocatedAmount;
+      district.totalBudgetSpent = (district.totalBudgetSpent || 0) + spentAmount;
       await district.save();
     }
     console.log(`✅ Created ${budgets.length} budgets`);
 
-    // Create transactions
+    // Create transactions (average 3-8 per budget for realistic data)
     console.log('💸 Creating transactions...');
     const transactions = [];
     for (const budget of budgets) {
-      const txnCount = Math.floor(Math.random() * 15) + 5; // 5-20 transactions per budget
+      const txnCount = Math.floor(Math.random() * 6) + 3; // 3-8 transactions per budget
       let remainingAmount = budget.spentAmount;
 
       for (let i = 0; i < txnCount && remainingAmount > 0; i++) {
         const amount = Math.min(
-          Math.floor(Math.random() * (budget.allocatedAmount / 10)),
+          Math.floor(remainingAmount / (txnCount - i) + (Math.random() - 0.5) * remainingAmount * 0.3),
           remainingAmount
         );
 
-        const daysAgo = Math.floor(Math.random() * 300);
-        const transactionDate = new Date();
-        transactionDate.setDate(transactionDate.getDate() - daysAgo);
+        if (amount <= 0) continue;
+
+        const daysAgo = Math.floor(Math.random() * 365);
+        const transactionDate = new Date(budget.startDate);
+        transactionDate.setDate(transactionDate.getDate() + Math.floor(Math.random() * 300));
 
         const beneficiaries = [
-          { name: 'Rural Development Council', accountNumber: '1234567890' },
-          { name: 'State Health Authority', accountNumber: '9876543210' },
-          { name: 'Education Board', accountNumber: '5555555555' },
-          { name: 'Infrastructure Corp', accountNumber: '7777777777' },
-          { name: 'Social Welfare Trust', accountNumber: '3333333333' }
+          { name: 'Rural Development Council', accountNumber: '1234567890', bankName: 'State Bank of India', ifscCode: 'SBIN0001234' },
+          { name: 'State Health Authority', accountNumber: '9876543210', bankName: 'Punjab National Bank', ifscCode: 'PUNB0098765' },
+          { name: 'Education Board', accountNumber: '5555555555', bankName: 'Bank of Baroda', ifscCode: 'BARB0005555' },
+          { name: 'Infrastructure Corp', accountNumber: '7777777777', bankName: 'HDFC Bank', ifscCode: 'HDFC0007777' },
+          { name: 'Social Welfare Trust', accountNumber: '3333333333', bankName: 'ICICI Bank', ifscCode: 'ICIC0003333' },
+          { name: 'District Administration', accountNumber: '1111111111', bankName: 'Union Bank', ifscCode: 'UBIN0011111' },
+          { name: 'Municipal Corporation', accountNumber: '2222222222', bankName: 'Canara Bank', ifscCode: 'CNRB0002222' },
+          { name: 'Public Works Department', accountNumber: '4444444444', bankName: 'Bank of India', ifscCode: 'BKID0004444' }
         ];
 
         const beneficiary = beneficiaries[Math.floor(Math.random() * beneficiaries.length)];
 
         // Generate transaction ID
-        const txnDate = new Date();
-        const year = txnDate.getFullYear();
-        const month = String(txnDate.getMonth() + 1).padStart(2, '0');
+        const year = transactionDate.getFullYear();
+        const month = String(transactionDate.getMonth() + 1).padStart(2, '0');
         const random = Math.random().toString(36).substr(2, 6).toUpperCase();
         const transactionId = `TXN${year}${month}${random}`;
 
+        const paymentModes = ['NEFT', 'RTGS', 'IMPS', 'Cheque', 'DD'];
+        const statuses = i === txnCount - 1 && Math.random() > 0.9 ? 'pending' : 'completed';
+
         const transaction = await Transaction.create({
           budget: budget._id,
+          department: budget.department,
           transactionId,
           type: TRANSACTION_TYPES.EXPENDITURE,
           amount,
-          description: `Payment for ${budget.scheme} - Phase ${i + 1}`,
+          description: `${budget.scheme} - Installment ${i + 1} for ${budget.district}`,
           beneficiary,
           transactionDate,
-          paymentMode: ['NEFT', 'RTGS', 'IMPS'][Math.floor(Math.random() * 3)],
-          status: 'completed',
-          approvedBy: admin._id
+          paymentMode: paymentModes[Math.floor(Math.random() * paymentModes.length)],
+          status: statuses,
+          approvedBy: admin._id,
+          category: budget.category
         });
         transactions.push(transaction);
         remainingAmount -= amount;
@@ -206,37 +238,71 @@ const generateData = async () => {
     }
     console.log(`✅ Created ${transactions.length} transactions`);
 
-    // Create some anomalies
+    // Create anomalies (20-25 for comprehensive testing)
     console.log('⚠️  Creating sample anomalies...');
     const anomaliesData = [];
     
-    // Add some suspicious transactions
-    for (let i = 0; i < 10; i++) {
+    // Add diverse anomalies
+    const anomalyTypes = [
+      {
+        type: 'high_value_transaction',
+        title: 'Unusually High Transaction Amount',
+        riskLevel: 'high',
+        description: 'Transaction amount significantly exceeds average spending pattern'
+      },
+      {
+        type: 'round_figure_transaction',
+        title: 'Suspicious Round Figure Payment',
+        riskLevel: 'medium',
+        description: 'Payment made in exact round figure, potentially indicating fraudulent activity'
+      },
+      {
+        type: 'unusual_spending_pattern',
+        title: 'Abnormal Spending Spike',
+        riskLevel: 'high',
+        description: 'Sudden increase in spending detected compared to historical patterns'
+      },
+      {
+        type: 'duplicate_transaction',
+        title: 'Potential Duplicate Payment',
+        riskLevel: 'critical',
+        description: 'Similar transaction found with same amount and beneficiary'
+      },
+      {
+        type: 'ghost_beneficiary',
+        title: 'Suspicious Beneficiary Account',
+        riskLevel: 'critical',
+        description: 'Beneficiary account shows irregular activity patterns'
+      },
+      {
+        type: 'high_velocity_spending',
+        title: 'Rapid Sequential Transactions',
+        riskLevel: 'high',
+        description: 'Multiple high-value transactions in short time period'
+      },
+      {
+        type: 'threshold_breach',
+        title: 'Budget Threshold Exceeded',
+        riskLevel: 'high',
+        description: 'Transaction causes budget allocation to exceed approved limits'
+      },
+      {
+        type: 'off_hours_transaction',
+        title: 'After-Hours Transaction',
+        riskLevel: 'medium',
+        description: 'Transaction processed outside normal business hours'
+      }
+    ];
+
+    for (let i = 0; i < 25; i++) {
       const transaction = transactions[Math.floor(Math.random() * transactions.length)];
       const budget = budgets.find(b => b._id.equals(transaction.budget));
       
-      const anomalyTypes = [
-        {
-          type: 'high_value_transaction',
-          title: 'Unusually High Transaction Amount',
-          description: `Transaction amount of ₹${transaction.amount.toLocaleString('en-IN')} is significantly higher than average.`,
-          riskLevel: 'high'
-        },
-        {
-          type: 'round_figure_transaction',
-          title: 'Suspicious Round Figure',
-          description: `Transaction of exactly ₹${transaction.amount.toLocaleString('en-IN')} appears suspicious.`,
-          riskLevel: 'medium'
-        },
-        {
-          type: 'unusual_spending_pattern',
-          title: 'Unusual Spending Pattern',
-          description: 'Sudden spike in spending detected.',
-          riskLevel: 'medium'
-        }
-      ];
+      if (!budget) continue;
 
       const anomalyType = anomalyTypes[Math.floor(Math.random() * anomalyTypes.length)];
+      const statuses = ['open', 'investigating', 'resolved', 'false_positive'];
+      const status = i < 15 ? 'open' : statuses[Math.floor(Math.random() * statuses.length)];
 
       const anomaly = await Anomaly.create({
         transaction: transaction._id,
@@ -244,11 +310,14 @@ const generateData = async () => {
         type: anomalyType.type,
         riskLevel: anomalyType.riskLevel,
         title: anomalyType.title,
-        description: anomalyType.description,
+        description: `${anomalyType.description}. Amount: ₹${(transaction.amount / 10000000).toFixed(2)} Cr in ${budget.district}, ${budget.state}`,
         amount: transaction.amount,
-        confidence: Math.floor(Math.random() * 30) + 60, // 60-90%
-        status: 'open',
-        detectedDate: new Date()
+        confidence: Math.floor(Math.random() * 35) + 65, // 65-100%
+        status,
+        detectedBy: 'AI_System',
+        detectedDate: new Date(transaction.transactionDate.getTime() + Math.random() * 86400000), // Within 24 hours of transaction
+        investigatedBy: status !== 'open' ? auditor._id : undefined,
+        resolvedDate: status === 'resolved' ? new Date() : undefined
       });
       anomaliesData.push(anomaly);
     }
