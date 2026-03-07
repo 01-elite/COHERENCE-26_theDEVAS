@@ -253,6 +253,274 @@ const AnomalyDetection = () => {
               </div>
             </div>
           )}
+
+          {/* Data Gaps & Hidden Risks */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {aiAnalysis.dataGaps && aiAnalysis.dataGaps.length > 0 && (
+              <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
+                <h3 className="font-semibold text-pink-900 mb-2 flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Data Gaps (What We Don't See)
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-pink-700">
+                  {aiAnalysis.dataGaps.map((gap, idx) => (
+                    <li key={idx}>{gap}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {aiAnalysis.hiddenRisks && aiAnalysis.hiddenRisks.length > 0 && (
+              <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
+                <h3 className="font-semibold text-rose-900 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Hidden Risks & Sophistication
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-rose-700">
+                  {aiAnalysis.hiddenRisks.map((risk, idx) => (
+                    <li key={idx}>{risk}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Prediction Analysis */}
+          {aiAnalysis.predictedTrend && (
+            <div className="mt-4 p-4 bg-cyan-50 rounded-lg border border-cyan-200">
+              <h3 className="font-semibold text-cyan-900 mb-2 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Predictive Analysis (Next 6-12 Months)
+              </h3>
+              <p className="text-cyan-800 font-medium mb-2">{aiAnalysis.predictedTrend}</p>
+              <p className="text-sm text-cyan-700">
+                <strong>Confidence Level:</strong> {aiAnalysis.predictionConfidence?.toUpperCase() || 'Medium'}
+              </p>
+            </div>
+          )}
+
+          {/* Outsider Insights */}
+          {aiAnalysis.outsiderInsights && aiAnalysis.outsiderInsights.length > 0 && (
+            <div className="mt-4 p-4 bg-violet-50 rounded-lg border border-violet-200">
+              <h3 className="font-semibold text-violet-900 mb-2 flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                What Insiders Know (Hidden Knowledge)
+              </h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-violet-700">
+                {aiAnalysis.outsiderInsights.map((insight, idx) => (
+                  <li key={idx}>{insight}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Detailed Written Report Section */}
+      {comparisonData.comparison?.detailedReport && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl p-8 shadow-md border border-gray-200">
+            {/* Report Header */}
+            <div className="mb-6 pb-6 border-b-2 border-gray-300">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                {comparisonData.comparison?.detailedReport?.reportTitle}
+              </h2>
+              <p className="text-gray-600">
+                Generated: {new Date(comparisonData.comparison?.detailedReport?.reportDate).toLocaleDateString()}
+              </p>
+            </div>
+
+            {/* Executive Summary For Citizens */}
+            <div className="mb-8 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <h3 className="text-lg font-bold text-blue-900 mb-3">Summary for Citizens</h3>
+              <p className="text-gray-800 leading-relaxed">
+                {comparisonData.comparison?.detailedReport?.executiveSummaryForCitizens}
+              </p>
+            </div>
+
+            {/* Key Metrics Table */}
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Key Metrics Overview</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {Object.entries(comparisonData.comparison?.detailedReport?.keyMetrics || {}).map(([key, value]) => (
+                  <div key={key} className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </p>
+                    <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Detailed Analysis */}
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Detailed Analysis</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">Trend Analysis</h4>
+                  <p className="text-gray-800">{comparisonData.comparison?.detailedReport?.detailedAnalysis?.trendAnalysis}</p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-900 mb-2">Amount Analysis</h4>
+                  <p className="text-gray-800">{comparisonData.comparison?.detailedReport?.detailedAnalysis?.amountAnalysis}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-semibold text-green-900 mb-2">Resolution Progress</h4>
+                  <p className="text-gray-800">{comparisonData.comparison?.detailedReport?.detailedAnalysis?.resolutionAnalysis}</p>
+                </div>
+                <div className="p-4 bg-orange-50 rounded-lg">
+                  <h4 className="font-semibold text-orange-900 mb-2">Year-over-Year Comparison</h4>
+                  <p className="text-gray-800">{comparisonData.comparison?.detailedReport?.detailedAnalysis?.comparisonWithPreviousYear}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* What The Data Does Not Show */}
+            <div className="mb-8 p-6 bg-red-50 rounded-lg border-2 border-red-300">
+              <h3 className="text-xl font-bold text-red-900 mb-4">What The Data Does NOT Show</h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Data Gaps (Hidden From Detection)
+                  </h4>
+                  <ul className="list-disc list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.whatTheDataDoesNotShow?.dataGaps?.map((gap, idx) => (
+                      <li key={idx}>{gap}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                    <Zap className="w-5 h-5" />
+                    Sophisticated Fraud Schemes
+                  </h4>
+                  <ul className="list-disc list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.whatTheDataDoesNotShow?.sophisticatedSchemes?.map((scheme, idx) => (
+                      <li key={idx}>{scheme}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    System Limitations
+                  </h4>
+                  <ul className="list-disc list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.whatTheDataDoesNotShow?.limitations?.map((limit, idx) => (
+                      <li key={idx}>{limit}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Predictive Analysis */}
+            <div className="mb-8 p-6 bg-amber-50 rounded-lg border-2 border-amber-300">
+              <h3 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-2">
+                <TrendingUp className="w-6 h-6" />
+                Predictive Analysis - What's Coming
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-white rounded border border-amber-200">
+                  <p className="font-semibold text-amber-900 mb-2">Next 6-12 Months Forecast</p>
+                  <p className="text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.predictiveAnalysis?.nextSixMonthsForecast}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-semibold text-amber-900 mb-3">Key Factors Influencing Prediction</p>
+                  <ul className="list-disc list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.predictiveAnalysis?.factors?.map((factor, idx) => (
+                      <li key={idx}>{factor}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Outsider Insights */}
+            <div className="mb-8 p-6 bg-indigo-50 rounded-lg border-2 border-indigo-300">
+              <h3 className="text-xl font-bold text-indigo-900 mb-4">What Insiders Know But Data Doesn't Show</h3>
+              <ul className="list-disc list-inside space-y-3 text-gray-800">
+                {comparisonData.comparison?.detailedReport?.outsiderInsights?.map((insight, idx) => (
+                  <li key={idx} className="text-base">{insight}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Recommendations */}
+            <div className="mb-8 p-6 bg-green-50 rounded-lg border-2 border-green-300">
+              <h3 className="text-xl font-bold text-green-900 mb-4">Actionable Recommendations</h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-green-800 mb-3 text-lg">Immediate Actions (Next 30 Days)</h4>
+                  <ul className="list-decimal list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.recommendations?.immediate?.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-green-800 mb-3 text-lg">Short-term Improvements (3-6 Months)</h4>
+                  <ul className="list-decimal list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.recommendations?.shortTerm?.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-green-800 mb-3 text-lg">Long-term Strategy (6-12 Months+)</h4>
+                  <ul className="list-decimal list-inside space-y-2 text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.recommendations?.longTerm?.map((rec, idx) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Confidence & Uncertainties */}
+            <div className="p-6 bg-yellow-50 rounded-lg border-2 border-yellow-300">
+              <h3 className="text-xl font-bold text-yellow-900 mb-4">Analysis Confidence & Uncertainties</h3>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-white rounded border border-yellow-200">
+                  <p className="font-semibold text-yellow-900">Overall Confidence Level</p>
+                  <p className="text-2xl font-bold text-yellow-700 mt-1">
+                    {comparisonData.comparison?.detailedReport?.confidenceAndUncertainties?.analysisConfidence}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-yellow-900 mb-2">Known Uncertainties</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.confidenceAndUncertainties?.uncertainties?.map((unc, idx) => (
+                      <li key={idx}>{unc}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-yellow-900 mb-2">Key Assumptions</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-800">
+                    {comparisonData.comparison?.detailedReport?.confidenceAndUncertainties?.assumptions?.map((assumption, idx) => (
+                      <li key={idx}>{assumption}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
