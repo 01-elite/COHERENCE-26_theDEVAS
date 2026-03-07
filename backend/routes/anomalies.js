@@ -8,7 +8,8 @@ const {
   getHighRiskAnomalies,
   updateAnomaly,
   resolveAnomaly,
-  getAnomalyStats
+  getAnomalyStats,
+  getYearComparison
 } = require('../controllers/anomalyController');
 
 // @route   GET /api/anomalies
@@ -22,6 +23,9 @@ router.get('/high-risk', auth, getHighRiskAnomalies);
 
 // @route   GET /api/anomalies/stats
 router.get('/stats', auth, getAnomalyStats);
+
+// @route   GET /api/anomalies/year-comparison
+router.get('/year-comparison', auth, getYearComparison);
 
 // @route   GET /api/anomalies/:id
 router.get('/:id', auth, getAnomalyById);

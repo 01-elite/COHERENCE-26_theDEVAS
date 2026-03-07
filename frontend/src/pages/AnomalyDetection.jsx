@@ -1,115 +1,307 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { anomalyAPI } from '../services/api';
-import { AlertTriangle, CheckCircle, Clock, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Search, TrendingUp, TrendingDown, Shield, Eye, XCircle, Zap } from 'lucide-react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { formatAmount, formatDateTime, getRiskColor } from '../utils/formatters';
 
 const AnomalyDetection = () => {
+  const [loading, setLoading] = useState(true);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [activeTab, setActiveTab] = useState('current'); // 'current' or 'lastYear'
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: anomalies, isLoading, refetch } = useQuery({
-    queryKey: ['anomalies', filter],
-    queryFn: () => {
-      const params = {};
-      if (filter !== 'all') params.status = filter;
-      return anomalyAPI.getAll(params);
-    }
-  });
+  useEffect(() => {
+    fetchYearComparison();
+  }, []);
 
-  const { data: stats } = useQuery({
-    queryKey: ['anomaly-stats'],
-    queryFn: anomalyAPI.getStats
-  });
+  const fetchYearComparison = async () => {
+    try {
+      setLoading(true);
+      const response = await anomalyAPI.getYearComparison();
+      setComparisonData(response.data);
+    } catch (error) {
+      console.error('Error fetching year comparison:', error);
+      alert('Failed to load anomaly comparison data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResolve = async (id) => {
     try {
       await anomalyAPI.resolve(id, 'Manually resolved by user');
-      refetch();
+      await fetchYearComparison();
     } catch (error) {
       console.error('Error resolving anomaly:', error);
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <LoadingSpinner size="lg" text="Loading anomalies..." />
+        <LoadingSpinner size="lg" text="Loading anomaly detection data..." />
       </div>
     );
   }
 
-  const filteredAnomalies = anomalies?.data?.filter(anomaly =>
-    anomaly.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    anomaly.description.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  if (!comparisonData) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">No anomaly data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { currentYear, lastYear, comparison } = comparisonData;
+  const currentAnomalies = currentYear.anomalies || [];
+  const lastYearAnomalies = lastYear.anomalies || [];
+  const trends = comparison.trends;
+  const aiAnalysis = comparison.aiAnalysis;
+
+  // Filter anomalies based on active tab
+  const activeAnomalies = activeTab === 'current' ? currentAnomalies : lastYearAnomalies;
+  const filteredAnomalies = activeAnomalies.filter(anomaly => {
+    const matchesFilter = filter === 'all' || anomaly.riskLevel === filter;
+    const matchesSearch = anomaly.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         anomaly.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const activeStats = activeTab === 'current' ? currentYear.stats : lastYear.stats;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Anomaly Detection</h1>
-        <p className="text-gray-600 mt-1">AI-powered detection of suspicious budget activities</p>
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <Shield className="w-8 h-8 text-primary" />
+          Anomaly Detection with AI Analysis
+        </h1>
+        <p className="text-gray-600 mt-1">Year-over-year comparison with AI-powered insights</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
+      {/* Year-over-Year Comparison Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Current Year Card */}
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+          <h3 className="text-lg font-semibold mb-2">Current Year</h3>
+          <p className="text-sm text-blue-100 mb-2">{currentYear.financialYear}</p>
+          <p className="text-4xl font-bold mb-2">{currentYear.stats.total}</p>
+          <p className="text-sm text-blue-100">Total Anomalies</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <p className="text-blue-100">Critical</p>
+              <p className="font-semibold">{currentYear.stats.byRiskLevel.critical}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Anomalies</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {anomalies?.count || 0}
-              </h3>
+              <p className="text-blue-100">High</p>
+              <p className="font-semibold">{currentYear.stats.byRiskLevel.high}</p>
             </div>
           </div>
         </div>
 
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <Clock className="w-6 h-6 text-orange-600" />
+        {/* Last Year Card */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+          <h3 className="text-lg font-semibold mb-2">Last Year</h3>
+          <p className="text-sm text-purple-100 mb-2">{lastYear.financialYear}</p>
+          <p className="text-4xl font-bold mb-2">{lastYear.stats.total}</p>
+          <p className="text-sm text-purple-100">Total Anomalies</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <p className="text-purple-100">Critical</p>
+              <p className="font-semibold">{lastYear.stats.byRiskLevel.critical}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Open</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {stats?.data?.byStatus?.find(s => s._id === 'open')?.count || 0}
-              </h3>
+              <p className="text-purple-100">High</p>
+              <p className="font-semibold">{lastYear.stats.byRiskLevel.high}</p>
             </div>
           </div>
         </div>
 
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Resolved</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {stats?.data?.byStatus?.find(s => s._id === 'resolved')?.count || 0}
-              </h3>
-            </div>
+        {/* Year-over-Year Change Card */}
+        <div className={`bg-gradient-to-br ${
+          trends.totalChange > 0 ? 'from-red-500 to-red-600' : 'from-green-500 to-green-600'
+        } rounded-xl p-6 text-white shadow-lg`}>
+          <h3 className="text-lg font-semibold mb-2">Year-over-Year</h3>
+          <p className="text-sm opacity-90 mb-2">Change Analysis</p>
+          <div className="flex items-center gap-2 mb-2">
+            {trends.totalChange > 0 ? (
+              <TrendingUp className="w-8 h-8" />
+            ) : (
+              <TrendingDown className="w-8 h-8" />
+            )}
+            <p className="text-4xl font-bold">
+              {trends.totalChange > 0 ? '+' : ''}{trends.totalChange}
+            </p>
+          </div>
+          <p className="text-sm opacity-90">
+            {trends.totalChange > 0 ? 'Increase' : 'Decrease'} of {Math.abs(trends.totalChangePercent)}%
+          </p>
+          <div className="mt-4 text-sm">
+            <p className="opacity-90">Amount Change</p>
+            <p className="font-semibold">
+              {trends.amountChange > 0 ? '+' : '-'}₹{(Math.abs(trends.amountChange) / 10000000).toFixed(2)} Cr
+            </p>
           </div>
         </div>
+      </div>
 
-        <div className="card hover:shadow-lg transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Clock className="w-6 h-6 text-blue-600" />
+      {/* AI Analysis Section */}
+      {aiAnalysis && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-indigo-500 rounded-lg">
+              <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg Resolution</p>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {stats?.data?.avgResolutionDays || 0} days
-              </h3>
+              <h2 className="text-xl font-bold text-gray-900">AI Analysis & Insights</h2>
+              <p className="text-sm text-gray-600">Powered by GPT-3.5-turbo</p>
             </div>
+            <span className={`ml-auto px-4 py-2 rounded-full text-sm font-semibold ${
+              aiAnalysis.overallAssessment === 'improving' ? 'bg-green-100 text-green-800' :
+              aiAnalysis.overallAssessment === 'declining' ? 'bg-red-100 text-red-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {aiAnalysis.overallAssessment?.toUpperCase()}
+            </span>
           </div>
+
+          <div className="mb-4 p-4 bg-white rounded-lg border border-indigo-100">
+            <h3 className="font-semibold text-gray-900 mb-2">Executive Summary</h3>
+            <p className="text-gray-700">{aiAnalysis.summary}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Key Findings */}
+            {aiAnalysis.keyFindings && aiAnalysis.keyFindings.length > 0 && (
+              <div className="p-4 bg-white rounded-lg border border-indigo-100">
+                <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Key Findings
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  {aiAnalysis.keyFindings.map((finding, idx) => (
+                    <li key={idx}>{finding}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Concerns */}
+            {aiAnalysis.concerns && aiAnalysis.concerns.length > 0 && (
+              <div className="p-4 bg-white rounded-lg border border-red-100">
+                <h3 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Concerns
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                  {aiAnalysis.concerns.map((concern, idx) => (
+                    <li key={idx}>{concern}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Positives */}
+            {aiAnalysis.positives && aiAnalysis.positives.length > 0 && (
+              <div className="p-4 bg-white rounded-lg border border-green-100">
+                <h3 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Positive Trends
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-green-700">
+                  {aiAnalysis.positives.map((positive, idx) => (
+                    <li key={idx}>{positive}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 && (
+              <div className="p-4 bg-white rounded-lg border border-indigo-100">
+                <h3 className="font-semibold text-indigo-900 mb-2 flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Recommendations
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-indigo-700">
+                  {aiAnalysis.recommendations.map((rec, idx) => (
+                    <li key={idx}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Priority Actions */}
+          {aiAnalysis.priorityActions && aiAnalysis.priorityActions.length > 0 && (
+            <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <h3 className="font-semibold text-orange-900 mb-2">Priority Actions Required</h3>
+              <div className="space-y-2">
+                {aiAnalysis.priorityActions.map((action, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-semibold">
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm text-orange-900">{action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="card">
+          <p className="text-sm text-gray-600">Total</p>
+          <p className="text-2xl font-bold text-gray-900">{activeStats.total}</p>
+        </div>
+        <div className="card bg-red-50">
+          <p className="text-sm text-red-600">Critical</p>
+          <p className="text-2xl font-bold text-red-700">{activeStats.byRiskLevel.critical}</p>
+        </div>
+        <div className="card bg-orange-50">
+          <p className="text-sm text-orange-600">High</p>
+          <p className="text-2xl font-bold text-orange-700">{activeStats.byRiskLevel.high}</p>
+        </div>
+        <div className="card bg-yellow-50">
+          <p className="text-sm text-yellow-600">Medium</p>
+          <p className="text-2xl font-bold text-yellow-700">{activeStats.byRiskLevel.medium}</p>
+        </div>
+        <div className="card bg-blue-50">
+          <p className="text-sm text-blue-600">Low</p>
+          <p className="text-2xl font-bold text-blue-700">{activeStats.byRiskLevel.low}</p>
+        </div>
+      </div>
+
+      {/* Tab Selection */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setActiveTab('current')}
+          className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+            activeTab === 'current'
+              ? 'bg-primary text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Current Year ({currentYear.financialYear})
+        </button>
+        <button
+          onClick={() => setActiveTab('lastYear')}
+          className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+            activeTab === 'lastYear'
+              ? 'bg-primary text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Last Year ({lastYear.financialYear})
+        </button>
       </div>
 
       {/* Filters and Search */}
@@ -126,17 +318,17 @@ const AnomalyDetection = () => {
             />
           </div>
           <div className="flex gap-2">
-            {['all', 'open', 'investigating', 'resolved'].map((status) => (
+            {['all', 'critical', 'high', 'medium', 'low'].map((riskLevel) => (
               <button
-                key={status}
-                onClick={() => setFilter(status)}
+                key={riskLevel}
+                onClick={() => setFilter(riskLevel)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filter === status
+                  filter === riskLevel
                     ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}
               </button>
             ))}
           </div>
@@ -145,54 +337,76 @@ const AnomalyDetection = () => {
 
       {/* Anomalies List */}
       <div className="space-y-4">
-        {filteredAnomalies.map((anomaly) => (
-          <div key={anomaly._id} className="card hover:shadow-lg transition-shadow">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-semibold text-gray-900">{anomaly.title}</h3>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${getRiskColor(anomaly.riskLevel)}`}>
-                    {anomaly.riskLevel}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    anomaly.status === 'open' ? 'bg-red-100 text-red-700' :
-                    anomaly.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {anomaly.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">{anomaly.description}</p>
-                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                  <span>Type: {anomaly.type.replace(/_/g, ' ')}</span>
-                  <span>Amount: {formatAmount(anomaly.amount)}</span>
-                  <span>Confidence: {anomaly.confidence}%</span>
-                  <span>Detected: {formatDateTime(anomaly.detectedDate)}</span>
-                </div>
-              </div>
-              {anomaly.status === 'open' && (
-                <button
-                  onClick={() => handleResolve(anomaly._id)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  Mark Resolved
-                </button>
-              )}
-            </div>
-            {anomaly.transaction && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
-                <span className="font-medium text-gray-700">Transaction ID: </span>
-                <span className="text-gray-600">{anomaly.transaction.transactionId}</span>
-              </div>
-            )}
-          </div>
-        ))}
-        
-        {filteredAnomalies.length === 0 && (
+        {filteredAnomalies.length === 0 ? (
           <div className="card text-center py-12">
             <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600">No anomalies found matching your criteria</p>
           </div>
+        ) : (
+          filteredAnomalies.map((anomaly) => (
+            <div key={anomaly._id} className="card hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-semibold text-gray-900">{anomaly.title}</h3>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${getRiskColor(anomaly.riskLevel)}`}>
+                      {anomaly.riskLevel}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      anomaly.status === 'open' || anomaly.status === 'pending' ? 'bg-red-100 text-red-700' :
+                      anomaly.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {anomaly.status}
+                    </span>
+                    {anomaly.aiInsights && (
+                      <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                        AI Analyzed
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{anomaly.description}</p>
+                  {anomaly.aiInsights && (
+                    <div className="mt-2 p-3 bg-purple-50 rounded-lg text-sm">
+                      <strong className="text-purple-900">AI Insights: </strong>
+                      <span className="text-purple-700">{anomaly.aiInsights}</span>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-2">
+                    <span>Type: {anomaly.type.replace(/_/g, ' ')}</span>
+                    <span>Amount: {formatAmount(anomaly.amount)}</span>
+                    <span>Confidence: {anomaly.confidence}%</span>
+                    {anomaly.aiRiskScore && <span>AI Risk: {anomaly.aiRiskScore}</span>}
+                    <span>Detected: {formatDateTime(anomaly.detectedDate)}</span>
+                  </div>
+                </div>
+                {(anomaly.status === 'open' || anomaly.status === 'pending') && activeTab === 'current' && (
+                  <button
+                    onClick={() => handleResolve(anomaly._id)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    Mark Resolved
+                  </button>
+                )}
+              </div>
+              {anomaly.transaction && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                  <span className="font-medium text-gray-700">Transaction: </span>
+                  <span className="text-gray-600">{anomaly.transaction.transactionId}</span>
+                  {anomaly.transaction.description && (
+                    <span className="ml-4 text-gray-600">- {anomaly.transaction.description}</span>
+                  )}
+                </div>
+              )}
+              {anomaly.budget && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm">
+                  <span className="font-medium text-blue-700">Budget: </span>
+                  <span className="text-blue-600">{anomaly.budget.title}</span>
+                  <span className="ml-4 text-blue-600">({anomaly.budget.scheme})</span>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>

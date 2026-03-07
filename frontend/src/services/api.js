@@ -81,6 +81,7 @@ export const anomalyAPI = {
   detect: (params) => api.get('/anomalies/detect', { params }),
   getHighRisk: () => api.get('/anomalies/high-risk'),
   getStats: () => api.get('/anomalies/stats'),
+  getYearComparison: () => api.get('/anomalies/year-comparison'),
   update: (id, data) => api.put(`/anomalies/${id}`, data),
   resolve: (id, resolution) => api.put(`/anomalies/${id}/resolve`, { resolution }),
 };
