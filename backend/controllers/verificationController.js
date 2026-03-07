@@ -307,3 +307,226 @@ exports.bulkVerifyAnomalies = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Compare current year vs past year budgets
+// @route   GET /api/verification/compare-budgets
+// @access  Private
+exports.compareBudgets = async (req, res, next) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const currentFY = `${currentYear}-${currentYear + 1}`;
+    const lastYearFY = `${currentYear - 1}-${currentYear}`;
+
+    // Get 50 current year budgets
+    const currentBudgets = await Budget.find({
+      financialYear: currentFY
+    })
+      .populate('department')
+      .limit(50)
+      .sort({ allocatedAmount: -1 });
+
+    // Find matching past year budgets (same scheme + department)
+    const comparisons = [];
+    
+    for (const currentBudget of currentBudgets) {
+      const pastBudget = await Budget.findOne({
+        financialYear: lastYearFY,
+        scheme: currentBudget.scheme,
+        department: currentBudget.department._id
+      }).populate('department');
+
+      if (pastBudget) {
+        const currentAmount = currentBudget.allocatedAmount || 0;
+        const pastAmount = pastBudget.allocatedAmount || 0;
+        
+        // Calculate difference
+        const absoluteDiff = currentAmount - pastAmount;
+        const percentageDiff = pastAmount > 0 ? ((absoluteDiff / pastAmount) * 100) : 0;
+        
+        // Determine if this needs verification (>50% change or >10 Cr difference)
+        const needsVerification = Math.abs(percentageDiff) > 50 || Math.abs(absoluteDiff) > 100000000;
+        
+        // Risk level based on change magnitude
+        let riskLevel = 'low';
+        if (Math.abs(percentageDiff) > 100) riskLevel = 'critical';
+        else if (Math.abs(percentageDiff) > 75) riskLevel = 'high';
+        else if (Math.abs(percentageDiff) > 50) riskLevel = 'medium';
+        
+        comparisons.push({
+          id: `${currentBudget._id}-${pastBudget._id}`,
+          current: {
+            id: currentBudget._id,
+            title: currentBudget.title,
+            scheme: currentBudget.scheme,
+            department: currentBudget.department.name,
+            allocated: currentAmount,
+            spent: currentBudget.spentAmount || 0,
+            utilization: parseFloat(currentBudget.utilizationPercentage || 0),
+            financialYear: currentBudget.financialYear,
+            status: currentBudget.status
+          },
+          past: {
+            id: pastBudget._id,
+            title: pastBudget.title,
+            scheme: pastBudget.scheme,
+            department: pastBudget.department.name,
+            allocated: pastAmount,
+            spent: pastBudget.spentAmount || 0,
+            utilization: parseFloat(pastBudget.utilizationPercentage || 0),
+            financialYear: pastBudget.financialYear,
+            status: pastBudget.status
+          },
+          difference: {
+            absolute: absoluteDiff,
+            percentage: parseFloat(percentageDiff.toFixed(2)),
+            direction: absoluteDiff > 0 ? 'increase' : 'decrease'
+          },
+          needsVerification,
+          riskLevel,
+          verificationStatus: 'pending'
+        });
+      }
+    }
+
+    // Sort by percentage difference (highest first)
+    comparisons.sort((a, b) => Math.abs(b.difference.percentage) - Math.abs(a.difference.percentage));
+
+    // Summary statistics
+    const stats = {
+      total: comparisons.length,
+      needsVerification: comparisons.filter(c => c.needsVerification).length,
+      critical: comparisons.filter(c => c.riskLevel === 'critical').length,
+      high: comparisons.filter(c => c.riskLevel === 'high').length,
+      medium: comparisons.filter(c => c.riskLevel === 'medium').length,
+      low: comparisons.filter(c => c.riskLevel === 'low').length,
+      avgIncrease: comparisons.filter(c => c.difference.direction === 'increase')
+        .reduce((sum, c) => sum + c.difference.percentage, 0) / comparisons.filter(c => c.difference.direction === 'increase').length || 0,
+      avgDecrease: comparisons.filter(c => c.difference.direction === 'decrease')
+        .reduce((sum, c) => sum + Math.abs(c.difference.percentage), 0) / comparisons.filter(c => c.difference.direction === 'decrease').length || 0
+    };
+
+    res.json({
+      success: true,
+      data: {
+        comparisons,
+        stats
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Analyze budget comparison with AI
+// @route   POST /api/verification/analyze-comparison
+// @access  Private
+exports.analyzeBudgetComparison = async (req, res, next) => {
+  try {
+    const { comparisonIds } = req.body;
+
+    if (!comparisonIds || comparisonIds.length === 0) {
+      return res.status(400).json({ error: 'Comparison IDs are required' });
+    }
+
+    // Get fresh comparison data
+    const currentYear = new Date().getFullYear();
+    const currentFY = `${currentYear}-${currentYear + 1}`;
+    const lastYearFY = `${currentYear - 1}-${currentYear}`;
+
+    const analysisResults = [];
+
+    for (const compId of comparisonIds) {
+      const [currentId, pastId] = compId.split('-');
+      
+      const currentBudget = await Budget.findById(currentId).populate('department');
+      const pastBudget = await Budget.findById(pastId).populate('department');
+
+      if (!currentBudget || !pastBudget) continue;
+
+      // Use AI to analyze the comparison
+      const aiAnalysis = await AIService.analyzeBudgetComparison(currentBudget, pastBudget);
+
+      analysisResults.push({
+        comparisonId: compId,
+        currentBudget: {
+          id: currentBudget._id,
+          title: currentBudget.title,
+          allocated: currentBudget.allocatedAmount
+        },
+        pastBudget: {
+          id: pastBudget._id,
+          title: pastBudget.title,
+          allocated: pastBudget.allocatedAmount
+        },
+        aiAnalysis
+      });
+    }
+
+    res.json({
+      success: true,
+      data: analysisResults
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Send budget comparison for verification
+// @route   POST /api/verification/send-for-verification
+// @access  Private
+exports.sendForVerification = async (req, res, next) => {
+  try {
+    const { comparisonIds, notes } = req.body;
+
+    if (!comparisonIds || comparisonIds.length === 0) {
+      return res.status(400).json({ error: 'Comparison IDs are required' });
+    }
+
+    const verificationItems = [];
+
+    for (const compId of comparisonIds) {
+      const [currentId, pastId] = compId.split('-');
+      
+      const currentBudget = await Budget.findById(currentId).populate('department');
+      const pastBudget = await Budget.findById(pastId).populate('department');
+
+      if (!currentBudget || !pastBudget) continue;
+
+      const percentageDiff = pastBudget.allocatedAmount > 0 
+        ? (((currentBudget.allocatedAmount - pastBudget.allocatedAmount) / pastBudget.allocatedAmount) * 100)
+        : 0;
+
+      // Create an anomaly for this comparison
+      const anomaly = await Anomaly.create({
+        budget: currentBudget._id,
+        type: 'unusual_spending_pattern',
+        riskLevel: Math.abs(percentageDiff) > 100 ? 'critical' : Math.abs(percentageDiff) > 75 ? 'high' : 'medium',
+        title: `Significant Budget Change Detected: ${currentBudget.scheme}`,
+        description: `Budget ${percentageDiff > 0 ? 'increased' : 'decreased'} by ${Math.abs(percentageDiff).toFixed(2)}% compared to last year (From ₹${(pastBudget.allocatedAmount / 10000000).toFixed(2)} Cr to ₹${(currentBudget.allocatedAmount / 10000000).toFixed(2)} Cr). ${notes || 'Requires verification.'}`,
+        detectedDate: new Date(),
+        amount: currentBudget.allocatedAmount,
+        confidence: 85,
+        status: 'pending',
+        verificationStatus: 'needs_review',
+        aiRiskScore: Math.min(Math.abs(percentageDiff), 100),
+        investigationNotes: notes
+      });
+
+      verificationItems.push({
+        comparisonId: compId,
+        anomalyId: anomaly._id,
+        currentBudget: currentBudget.title,
+        pastBudget: pastBudget.title,
+        change: percentageDiff.toFixed(2) + '%'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `${verificationItems.length} items sent for verification`,
+      data: verificationItems
+    });
+  } catch (error) {
+    next(error);
+  }
+};

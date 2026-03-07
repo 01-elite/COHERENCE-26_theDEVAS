@@ -397,6 +397,134 @@ You excel at identifying patterns, anomalies, and suspicious changes in multi-ye
       };
     }
   }
+
+  /**
+   * Analyze budget comparison between current and past year
+   */
+  static async analyzeBudgetComparison(currentBudget, pastBudget) {
+    try {
+      const currentAmount = currentBudget.allocatedAmount || 0;
+      const pastAmount = pastBudget.allocatedAmount || 0;
+      const difference = currentAmount - pastAmount;
+      const percentageChange = pastAmount > 0 ? ((difference / pastAmount) * 100).toFixed(2) : 0;
+
+      const prompt = `Analyze this year-over-year budget comparison and determine if the change is justified or suspicious:
+
+CURRENT YEAR BUDGET (${currentBudget.financialYear}):
+- Scheme: ${currentBudget.scheme}
+- Department: ${currentBudget.department?.name || 'N/A'}
+- Allocated: ₹${(currentAmount / 10000000).toFixed(2)} Cr
+- Spent: ₹${(currentBudget.spentAmount / 10000000).toFixed(2)} Cr (${currentBudget.utilizationPercentage || 0}%)
+- Status: ${currentBudget.status}
+
+PAST YEAR BUDGET (${pastBudget.financialYear}):
+- Allocated: ₹${(pastAmount / 10000000).toFixed(2)} Cr
+- Spent: ₹${(pastBudget.spentAmount / 10000000).toFixed(2)} Cr (${pastBudget.utilizationPercentage || 0}%)
+- Status: ${pastBudget.status}
+
+YEAR-OVER-YEAR CHANGE:
+- Absolute Difference: ₹${(Math.abs(difference) / 10000000).toFixed(2)} Cr
+- Percentage Change: ${percentageChange}%
+- Direction: ${difference > 0 ? 'INCREASE' : 'DECREASE'}
+
+ANALYSIS REQUIRED:
+Provide your analysis in the following JSON format:
+{
+  "isJustified": true/false,
+  "confidence": 0-100,
+  "riskLevel": "low/medium/high/critical",
+  "riskScore": 0-100,
+  "reasoning": "detailed explanation of why this change is justified or suspicious",
+  "justificationFactors": ["factor1", "factor2"] or [],
+  "redFlags": ["flag1", "flag2"] or [],
+  "recommendations": ["recommendation1", "recommendation2"],
+  "insights": "summary of key findings",
+  "actionRequired": "none/monitor/investigate/escalate"
+}
+
+Consider:
+1. Is this percentage change normal for government budgets?
+2. Past year utilization patterns (did they need this much?)
+3. Common reasons for budget increases/decreases (policy changes, inflation, program expansion)
+4. Red flags: excessive increases without justification, drastic cuts to essential services
+5. Indian government budget context and typical year-over-year variations`;
+
+      const systemContext = `You are an expert in Indian government financial planning and budget analysis with deep knowledge of:
+- Public financial management and budget allocation processes
+- Normal year-over-year budget variations in government schemes
+- Policy-driven budget changes and their impacts
+- Suspicious patterns indicating potential misallocation or fraud
+- Indian fiscal policy and inflation-adjusted budget planning
+Provide balanced, context-aware analysis considering legitimate government needs.`;
+
+      const result = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemContext },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.4,
+        max_tokens: 700
+      });
+
+      const aiResponse = result.choices[0].message.content;
+      
+      // Try to parse JSON response
+      let analysis;
+      try {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          // Fallback if AI doesn't return proper JSON
+          analysis = {
+            isJustified: percentageChange < 50,
+            confidence: 50,
+            riskLevel: Math.abs(percentageChange) > 100 ? 'critical' : Math.abs(percentageChange) > 75 ? 'high' : 'medium',
+            riskScore: Math.min(Math.abs(percentageChange), 100),
+            reasoning: aiResponse,
+            justificationFactors: [],
+            redFlags: [],
+            recommendations: [],
+            insights: aiResponse.substring(0, 200),
+            actionRequired: Math.abs(percentageChange) > 75 ? 'investigate' : 'monitor'
+          };
+        }
+      } catch (parseError) {
+        analysis = {
+          isJustified: percentageChange < 50,
+          confidence: 50,
+          riskLevel: Math.abs(percentageChange) > 100 ? 'critical' : Math.abs(percentageChange) > 75 ? 'high' : 'medium',
+          riskScore: Math.min(Math.abs(percentageChange), 100),
+          reasoning: aiResponse,
+          justificationFactors: [],
+          redFlags: [],
+          recommendations: [],
+          insights: aiResponse.substring(0, 200),
+          actionRequired: Math.abs(percentageChange) > 75 ? 'investigate' : 'monitor'
+        };
+      }
+
+      return {
+        success: true,
+        comparison: {
+          currentAmount,
+          pastAmount,
+          difference,
+          percentageChange: parseFloat(percentageChange)
+        },
+        ...analysis,
+        rawResponse: aiResponse
+      };
+    } catch (error) {
+      console.error('Budget Comparison Analysis Error:', error);
+      return {
+        success: false,
+        error: error.message,
+        insights: 'Budget comparison analysis failed'
+      };
+    }
+  }
 }
 
 module.exports = AIService;
